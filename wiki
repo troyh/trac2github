@@ -1,0 +1,57 @@
+#!/bin/bash
+
+function usage() {
+	cat - <<EOF
+	wiki [-u <USERNAME> -p <PASSWORD>] URL
+	
+EOF
+	exit;
+}
+
+if [ -z "$1" ]; then
+	usage;
+fi
+
+while getopts "u:p:" opt; do
+	case "$opt" in 
+	u)
+		user=$OPTARG;
+		((shifts++));
+		;;
+	p) 
+		password=$OPTARG;
+		((shifts++));
+		;;
+	\?)
+		usage;
+		;;
+	esac;
+	((shifts++));
+done
+
+for ((i=0;i<$shifts;++i)); do
+	shift;
+done
+url=$1
+
+cat - > wiki.sed <<EOF
+s/'''\(.\+\)'''/**\1**/g
+s/''\(.\+\)''/*\1*/g
+s/^\s*==\s*\(.\+\)\s*==\s*\$/# \1/
+s/^\s*===\s*\(.\+\)\s*===\s*\$/## \1/
+s/\[wiki:\([a-zA-Z0-9]\+\)\s\+\(.\+\)\]/[[\2|\1]]/g
+s/\[wiki:\([a-zA-Z0-9]\+\)\]/[[\1]]/g
+s/\[http:\([^\s]\+\)\s\+\(.\+\)\]/[[\2|http:\1]]/g
+EOF
+
+
+if [ ! -z "$user" ]; then
+	credentials="--user $user:$password";
+fi
+
+if [ ! -f page.tracwiki ]; then
+	curl --silent $credentials $url > page.tracwiki
+fi
+
+sed -f wiki.sed page.tracwiki
+
